@@ -1,0 +1,118 @@
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/mfd/mfd_mchp_sam_flexcom.h>
+
+&pinctrl {
+    flx0_i2c_default: flx0_i2c_default {
+        group1 {
+            pinmux = <PIN_PC7__FLEXCOM0_IO0>,  /* SDA */
+                     <PIN_PC6__FLEXCOM0_IO1>;  /* SCL */
+            bias-pull-up;
+        };
+    };
+};
+
+&flx0 {
+    mchp,flexcom-mode = <SAM_FLEXCOM_MODE_TWI>;
+    status = "okay";
+
+    i2c0: i2c0@600 {
+        pinctrl-0 = <&flx0_i2c_default>;
+        pinctrl-names = "default";
+        clock-frequency = <I2C_BITRATE_FAST>;
+        status = "okay";
+
+        maxtouch: maxtouch@4a {
+            compatible = "microchip,maxtouch";
+            reg = <0x4a>;
+            irq-gpios = <&piob 16 GPIO_ACTIVE_LOW>;
+            screen-width = <800>;
+            screen-height = <480>;
+            max-touches = <5>;
+            startup-delay-ms = <100>;
+        };
+    };
+};
+
+/ {
+    chosen {
+        zephyr,display = &base_layer;
+        zephyr,touch = &maxtouch;
+    };
+    panel_power: panel-power {
+        compatible = "regulator-fixed";
+        regulator-name = "panel-power";
+        enable-gpios = <&piob 18 GPIO_ACTIVE_HIGH>;
+        regulator-boot-on;
+    };
+
+    leds {
+        compatible = "gpio-leds";
+
+        gpio_lvds_pwm: led_piob_14 {
+            gpios = <&piob 14 GPIO_ACTIVE_HIGH>;
+            label = "LVDS Backlight PWM";
+        };
+    };
+
+    lvdsc: lvdsc@e1408000 {
+        compatible = "microchip,sam-lvdsc";
+        status = "okay";
+        reg = <0xe1408000 0x4000>;
+        dpi-input-type = "24-bit";
+        dc-mode = "unbalanced";
+        mapping = "jeida";
+        lane-a3-bit = <0>;
+        dc-bias = <9>;
+        pre-emphasis-clk = <0>;
+        pre-emphasis-a0 = <0>;
+        pre-emphasis-a1 = <0>;
+        pre-emphasis-a2 = <0>;
+        pre-emphasis-a3 = <0>;
+    };
+
+    xlcdc: xlcdc@e1400000 {
+        compatible = "microchip,sama7d65-xlcdc";
+        status = "okay";
+        reg = <0xe1400000 0x4000>;
+        interrupt-parent = <&gic>;
+        interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        width = <800>;
+        height = <480>;
+        pixel-format = <3>;        /* RGB_565 */
+        output-mode = "dpi-24";
+        guard-time = <1>;
+        backlight-pwm-source = "slow-clock";
+        backlight-pwm-prescaler = <0>;
+        backlight-brightness = <255>;
+        port = <&lvdsc>;
+
+        display-timings {
+            compatible = "zephyr,panel-timing";
+            clock-frequency = <25000000>;
+            hsync-len = <5>;
+            hfront-porch = <88>;
+            hback-porch = <40>;
+            vsync-len = <5>;
+            vfront-porch = <23>;
+            vback-porch = <1>;
+            de-active = <0>;
+            hsync-active = <1>;
+            vsync-active = <1>;
+            pixelclk-active = <0>;
+        };
+
+        base_layer: layer-base@0 {
+            compatible = "microchip,sam-xlcdc-layer";
+            reg = <0>;
+            layer-type = "base";
+            width = <800>;
+            height = <480>;
+            default-color = <0 0 0>;
+            no-alloc-framebuffer;
+        };
+    };
+};

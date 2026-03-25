@@ -1,0 +1,122 @@
+description: |
+  Microchip SAM XLCDC display layer device.
+
+  Each layer (base, ovr1, heo, ovr2) registers as its own display device
+  implementing display_driver_api. Must be a child node of an XLCDC
+  controller (microchip,sam9x7-xlcdc or microchip,sama7d65-xlcdc).
+
+  Example:
+
+    base_layer: layer-base@0 {
+        compatible = "microchip,sam-xlcdc-layer";
+        reg = <0>;
+        layer-type = "base";
+    };
+
+    ovr1_layer: layer-ovr1@1 {
+        compatible = "microchip,sam-xlcdc-layer";
+        reg = <1>;
+        layer-type = "ovr1";
+        global-alpha = <180>;
+        default-color = <0 0 0>;
+    };
+
+    heo_layer: layer-heo@2 {
+        compatible = "microchip,sam-xlcdc-layer";
+        reg = <2>;
+        layer-type = "heo";
+        heo-video-priority;
+    };
+
+compatible: "microchip,sam-xlcdc-layer"
+
+properties:
+  reg:
+    type: int
+    required: true
+    description: |
+      Layer index: 0=base, 1=ovr1, 2=heo, 3=ovr2.
+
+  layer-type:
+    type: string
+    required: true
+    description: Hardware layer selection.
+    enum:
+      - "base"
+      - "ovr1"
+      - "heo"
+      - "ovr2"
+
+  pixel-format:
+    type: int
+    description: |
+      Per-layer RGB color mode override. If omitted, inherits the parent
+      XLCDC pixel-format value.
+
+  default-color:
+    type: array
+    description: |
+      Default layer color when DMA is disabled. Three element array
+      <R G B> with values 0-255. Default is <0 0 0>.
+
+  global-alpha:
+    type: int
+    default: 255
+    description: |
+      Global alpha value for overlay blending (0=transparent, 255=opaque).
+      Written to xCFG9/xCFG12 A0 field. Ignored for base layer.
+
+  heo-video-priority:
+    type: boolean
+    description: |
+      When set, HEO layer is rendered above OVR1 in the layer stack.
+      Only applies to HEO layer type. Written to HEOCFG12.VIDPRI.
+
+  width:
+    type: int
+    description: |
+      Layer width in pixels. If omitted, the driver inherits the parent
+      XLCDC width at runtime. For overlay layers, the framebuffer is
+      allocated to this size (saves memory vs full-screen). Must not
+      exceed 2048 (11-bit hardware register). Also required when this
+      node is used as zephyr,display chosen for LVGL.
+
+  height:
+    type: int
+    description: |
+      Layer height in pixels. If omitted, the driver inherits the parent
+      XLCDC height at runtime. For overlay layers, the framebuffer is
+      allocated to this size (saves memory vs full-screen). Must not
+      exceed 2048 (11-bit hardware register). Also required when this
+      node is used as zephyr,display chosen for LVGL.
+
+  x-origin:
+    type: int
+    default: 0
+    description: |
+      Horizontal position of the overlay window on the display, in pixels.
+      11-bit hardware register (0-2047). x-origin + width must not exceed
+      the parent XLCDC width. Ignored for base layer. Default 0.
+
+  y-origin:
+    type: int
+    default: 0
+    description: |
+      Vertical position of the overlay window on the display, in pixels.
+      11-bit hardware register (0-2047). y-origin + height must not exceed
+      the parent XLCDC height. Ignored for base layer. Default 0.
+
+  no-alloc-framebuffer:
+    type: boolean
+    description: |
+      When set, the driver does NOT allocate its own framebuffer at init.
+      The caller (e.g. LVGL) owns the pixel buffers and passes them via
+      display_write(). Only full-screen writes are supported in this mode;
+      partial writes return -ENOTSUP. Saves framebuffer memory when using
+      LVGL with CONFIG_LV_Z_FULL_REFRESH and CONFIG_LV_Z_DOUBLE_VDB.
+
+  framebuffer-memory:
+    type: array
+    description: |
+      Optional fixed address and size pair for this layer's framebuffer.
+      If omitted, the layer allocates from the system heap at runtime.

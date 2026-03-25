@@ -1,0 +1,138 @@
+description: |
+  Microchip SAM XLCDC (eXtended LCD Controller)
+
+  Supports SAM9X7x (4 layers) and SAMA7D65 (3 layers) SoC variants.
+  Requires a child node compatible with "zephyr,panel-timing" for display
+  timing parameters, and child nodes for each layer device.
+
+  Each layer child node is a separate display device implementing
+  display_driver_api. The parent manages shared resources (clocks, timing,
+  LVDSPLL, start/stop, backlight).
+
+  Example:
+
+    xlcdc: xlcdc@e1400000 {
+        compatible = "microchip,sama7d65-xlcdc";
+        reg = <0xe1400000 0x4000>;
+        interrupt-parent = <&gic>;
+        interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        width = <800>;
+        height = <480>;
+        pixel-format = <12>;
+        output-mode = "dpi-24";
+        port = <&lvdsc>;
+
+        display-timings {
+            compatible = "zephyr,panel-timing";
+            clock-frequency = <25000000>;
+            hsync-len = <5>;
+            hfront-porch = <88>;
+            hback-porch = <40>;
+            vsync-len = <5>;
+            vfront-porch = <23>;
+            vback-porch = <1>;
+            de-active = <1>;
+            hsync-active = <0>;
+            vsync-active = <0>;
+            pixelclk-active = <0>;
+        };
+
+        base_layer: layer-base@0 {
+            compatible = "microchip,sam-xlcdc-layer";
+            reg = <0>;
+            layer-type = "base";
+        };
+
+        ovr1_layer: layer-ovr1@1 {
+            compatible = "microchip,sam-xlcdc-layer";
+            reg = <1>;
+            layer-type = "ovr1";
+            global-alpha = <180>;
+        };
+
+        heo_layer: layer-heo@2 {
+            compatible = "microchip,sam-xlcdc-layer";
+            reg = <2>;
+            layer-type = "heo";
+        };
+    };
+
+compatible: "microchip,sam9x7-xlcdc"
+
+include: [lcd-controller.yaml]
+
+properties:
+  reg:
+    required: true
+
+  "#address-cells":
+    type: int
+    const: 1
+
+  "#size-cells":
+    type: int
+    const: 0
+
+  pixel-format:
+    type: int
+    required: true
+    description: |
+      RGB color mode value written to BASECFGx.RGBMODE.
+      Common values:
+        3  = RGB_565
+        9  = RGB_888
+        12 = ARGB_8888
+        13 = RGBA_8888
+
+  output-mode:
+    type: string
+    required: true
+    description: |
+      Display output interface mode. Controls LCDCFG5.MODE and LCDCFG5.DPI.
+    enum:
+      - "dpi-24"
+      - "dpi-18"
+      - "dpi-16"
+      - "legacy-24"
+      - "legacy-18"
+      - "legacy-16"
+      - "legacy-12"
+
+  guard-time:
+    type: int
+    default: 30
+    description: |
+      Number of guard frames inserted between DISP assertion and first row.
+      Written to LCDCFG5.GUARDTIME. Range 0-255.
+
+  backlight-pwm-source:
+    type: string
+    default: "slow-clock"
+    description: |
+      PWM backlight clock source. Written to LCDCFG0.CLKPWMSEL.
+    enum:
+      - "slow-clock"
+      - "system-clock"
+
+  backlight-pwm-prescaler:
+    type: int
+    default: 6
+    description: |
+      PWM backlight clock prescaler. Written to LCDCFG6.PWMPS.
+      Values 0-15 correspond to DIV_1 through DIV_32768.
+
+  backlight-brightness:
+    type: int
+    default: 255
+    description: |
+      Initial PWM backlight brightness. Written to LCDCFG6.PWMCVAL.
+      Range 0-255.
+
+  port:
+    type: phandle
+    description: |
+      Reference to an output bridge device (e.g., LVDSC serializer).
+      The bridge must be initialized before the XLCDC is started.
+

@@ -1,0 +1,23 @@
+# editors
+.vscode
+*~
+
+# python
+.venv
+*.pyc
+__pycache__/
+
+# build
+/build*
+/twister-out*
+
+# Common build artifacts
+*.o
+*.a
+*.d
+*.cmd
+*.log
+
+# docs
+/doc/_build*
+.claude/settings.local.json

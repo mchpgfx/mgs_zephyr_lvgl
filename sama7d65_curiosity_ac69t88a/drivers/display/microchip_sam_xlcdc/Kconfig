@@ -1,0 +1,62 @@
+config DISPLAY_MICROCHIP_SAM_XLCDC
+    bool "Microchip SAM XLCDC Parent Driver"
+    default y
+    depends on DT_HAS_MICROCHIP_SAM9X7_XLCDC_ENABLED || DT_HAS_MICROCHIP_SAMA7D65_XLCDC_ENABLED
+    help
+      Enable support for the Microchip SAM XLCDC display controller parent
+      device. Manages clocks, timing engine, LVDSPLL, and backlight.
+      Layers are handled by the separate layer driver below.
+
+config DISPLAY_MICROCHIP_SAM_XLCDC_LAYER
+    bool "Microchip SAM XLCDC Layer Device Driver"
+    default y
+    depends on DISPLAY_MICROCHIP_SAM_XLCDC
+    depends on DT_HAS_MICROCHIP_SAM_XLCDC_LAYER_ENABLED
+    select DISPLAY
+    help
+      Per-layer display devices for the XLCDC controller. Each layer
+      (base, ovr1, heo, ovr2) registers as its own display device
+      implementing display_driver_api.
+
+config XLCDC_LAYER_INIT_PRIORITY
+    int "XLCDC layer init priority"
+    default 86
+    depends on DISPLAY_MICROCHIP_SAM_XLCDC_LAYER
+    help
+      Initialization priority for XLCDC layer devices.
+      Must be higher than CONFIG_DISPLAY_INIT_PRIORITY (default 85)
+      so the parent XLCDC is initialized first.
+
+if DISPLAY_MICROCHIP_SAM_XLCDC
+
+config MICROCHIP_SAM_XLCDC_DOUBLE_BUFFER
+    bool "Enable double buffering"
+    default n
+    help
+      Enable double buffering for tear-free display updates.
+      Requires twice the framebuffer memory.
+
+config MICROCHIP_SAM_XLCDC_LOG_REGS
+    bool "Log register writes during init"
+    default n
+    help
+      Log all register writes during driver initialization for debugging.
+
+endif # DISPLAY_MICROCHIP_SAM_XLCDC
+
+config DISPLAY_MICROCHIP_SAM_LVDSC
+    bool "Microchip SAM LVDSC Bridge Driver"
+    default y
+    depends on DT_HAS_MICROCHIP_SAM_LVDSC_ENABLED
+    help
+      Enable support for the Microchip SAM LVDSC (LVDS Serializer Controller).
+      Converts parallel DPI output to LVDS signaling.
+
+config MICROCHIP_SAM_LVDSC_INIT_PRIORITY
+    int "LVDSC bridge init priority"
+    default 79
+    depends on DISPLAY_MICROCHIP_SAM_LVDSC
+    help
+      Initialization priority for the LVDSC bridge driver.
+      Must be lower than CONFIG_DISPLAY_INIT_PRIORITY (default 85)
+      so the bridge is ready before the XLCDC driver starts.

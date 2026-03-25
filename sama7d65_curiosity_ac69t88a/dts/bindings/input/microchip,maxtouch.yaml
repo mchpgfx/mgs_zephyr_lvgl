@@ -1,0 +1,54 @@
+description: |
+  Microchip maXTouch(R) capacitive touch controller.
+
+  Both irq-gpios and reset-gpios are optional: when irq-gpios is
+  absent the driver uses polling mode; when reset-gpios is absent
+  only a soft reset is performed at init.
+
+  Example:
+    maxtouch@4a {
+      compatible = "microchip,maxtouch";
+      reg = <0x4a>;
+      irq-gpios = <&piob 16 GPIO_ACTIVE_LOW>;
+      screen-width = <800>;
+      screen-height = <480>;
+    };
+
+compatible: "microchip,maxtouch"
+
+include:
+  - name: i2c-device.yaml
+  - name: touchscreen-common.yaml
+
+properties:
+  reset-gpios:
+    type: phandle-array
+    description: |
+      Optional GPIO connected to the maXTouch reset pin.
+      When absent, the driver skips hardware reset and uses soft
+      reset only.
+
+  irq-gpios:
+    type: phandle-array
+    description: |
+      Optional GPIO connected to the maXTouch CHG (interrupt) pin.
+      When absent, the driver operates in polling mode.
+
+      CHG is open-drain; an external pull-up to VddIO (typically
+      3.3k) is recommended. The driver enables an internal pull-up
+      as a fallback.
+
+  max-touches:
+    type: int
+    description: |
+      Maximum simultaneous touch points to configure on the chip.
+      When present, T100 NUMTCH is capped to this value. When
+      absent, NUMTCH is set to the chip's maximum supported count.
+
+  startup-delay-ms:
+    type: int
+    default: 0
+    description: |
+      Delay in milliseconds before probing the I2C bus. Allows the
+      controller time to complete its power-on-reset when there is
+      no reset GPIO

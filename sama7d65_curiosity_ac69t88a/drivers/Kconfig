@@ -1,0 +1,2 @@
+rsource "display/Kconfig"
+rsource "input/Kconfig"
