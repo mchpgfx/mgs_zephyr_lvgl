@@ -1,3 +1,4 @@
+# board: sama7d65_curiosity/sama7d65
 cmake_minimum_required(VERSION 3.20.0)
 
 # 1. Register the current directory as a Zephyr Module
