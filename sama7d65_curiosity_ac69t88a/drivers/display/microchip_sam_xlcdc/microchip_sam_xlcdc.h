@@ -35,10 +35,9 @@
 
 /*
  * RGBA_8888 (R[31:24] G[23:16] B[15:8] A[7:0]) is supported by the XLCDC
- * hardware (RGBMODE=13) but not defined in Zephyr's standard pixel formats.
- * Define a private format using the Zephyr-provided extension range.
+ * hardware (RGBMODE=13). It is now a standard Zephyr pixel format
+ * (PIXEL_FORMAT_RGBA_8888), so no private definition is needed.
  */
-#define PIXEL_FORMAT_RGBA_8888 PIXEL_FORMAT_PRIV_START
 
 /* ========================================================================= */
 /*                       Enumerations                                        */
