@@ -1,0 +1,3 @@
+zephyr_library_sources_ifdef(CONFIG_DISPLAY_MICROCHIP_SAM_XLCDC microchip_sam_xlcdc.c)
+zephyr_library_sources_ifdef(CONFIG_DISPLAY_MICROCHIP_SAM_XLCDC_LAYER microchip_sam_xlcdc_layer.c)
+zephyr_library_sources_ifdef(CONFIG_DISPLAY_MICROCHIP_SAM_LVDSC microchip_sam_lvdsc.c)

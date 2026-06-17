@@ -1,0 +1,7 @@
+description: |
+  Microchip SAMA7D65 XLCDC variant (3 layers, no OVR2, GCLK max 90MHz).
+  See microchip,sam-xlcdc.yaml for full property documentation.
+
+compatible: "microchip,sama7d65-xlcdc"
+
+include: microchip,sam-xlcdc.yaml

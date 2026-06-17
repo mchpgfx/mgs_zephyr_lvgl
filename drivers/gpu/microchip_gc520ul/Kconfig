@@ -1,0 +1,37 @@
+config GPU_MICROCHIP_GC520UL
+	bool "Microchip GC520UL 2D GPU (GPU2DC) driver"
+	default y
+	depends on DT_HAS_MICROCHIP_GC520UL_ENABLED
+	help
+	  Enable the Verisilicon GC520UL 2D GPU driver. Brings up the GPU2DC
+	  core via the nano2D library (built as a separate Zephyr module) and
+	  routes the GPU interrupt to nano2D event handling. Also gates the
+	  compilation of the nano2D library module.
+
+if GPU_MICROCHIP_GC520UL
+
+config GPU_MICROCHIP_GC520UL_HEAP_SIZE
+	int "GC520UL GPU heap size (bytes)"
+	default 1048576
+	range 65536 4194304
+	help
+	  Size of the contiguous, identity-mapped, non-cached heap handed to
+	  nano2D for its device context and per-commit command buffers. The driver
+	  reserves this as a static __nocache buffer and the consumer HAL manages
+	  it with a Zephyr k_heap (n2d_hal_allocate/free).
+
+	  1 MB is ample for the FILL+IMAGE command stream. This value also sizes
+	  the non-cached MMU region, so do not over-provision it.
+
+config GPU_MICROCHIP_GC520UL_INIT_PRIORITY
+	int "GC520UL init priority"
+	default 90
+	help
+	  Device init priority (POST_KERNEL). Must be greater than the display
+	  init priorities so the system heap and display are ready first.
+
+module = GPU_MICROCHIP_GC520UL
+module-str = GC520UL 2D GPU
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # GPU_MICROCHIP_GC520UL

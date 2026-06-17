@@ -1,0 +1,90 @@
+description: |
+  Microchip SAM LVDSC (LVDS Serializer Controller)
+
+  Converts parallel DPI output from the XLCDC to LVDS signaling.
+
+  Example:
+
+    lvdsc: lvdsc@e1424000 {
+        compatible = "microchip,sam-lvdsc";
+        reg = <0xe1424000 0x100>;
+        dpi-input-type = "24-bit";
+        dc-mode = "unbalanced";
+        mapping = "jeida";
+    };
+
+compatible: "microchip,sam-lvdsc"
+
+include: [base.yaml]
+
+properties:
+  reg:
+    required: true
+
+  dpi-input-type:
+    type: string
+    required: true
+    description: |
+      DPI input pixel size from XLCDC. Written to LVDSC_CFGR.LCDC_PIXSIZE.
+    enum:
+      - "24-bit"
+      - "18-bit"
+
+  dc-mode:
+    type: string
+    default: "unbalanced"
+    description: |
+      DC balance mode. Written to LVDSC_CFGR.DC_BAL.
+    enum:
+      - "unbalanced"
+      - "balanced"
+
+  mapping:
+    type: string
+    default: "jeida"
+    description: |
+      LVDS data mapping format. Written to LVDSC_CFGR.MAPPING.
+      Only applicable when dc-mode is "unbalanced".
+    enum:
+      - "vesa"
+      - "jeida"
+
+  lane-a3-bit:
+    type: int
+    default: 0
+    description: |
+      Lane A3 reserved bit value. Written to LVDSC_UCBR.RESA3.
+      0 or 1.
+
+  dc-bias:
+    type: int
+    default: 9
+    description: |
+      DC bias value. Written to LVDSC_ACR.DCBIAS. Range 0-31.
+
+  pre-emphasis-clk:
+    type: int
+    default: 0
+    description: |
+      Clock lane pre-emphasis. Written to LVDSC_ACR.PREEMP_CLK1.
+      Range 0-7.
+
+  pre-emphasis-a0:
+    type: int
+    default: 0
+    description: Data lane A0 pre-emphasis. Range 0-7.
+
+  pre-emphasis-a1:
+    type: int
+    default: 0
+    description: Data lane A1 pre-emphasis. Range 0-7.
+
+  pre-emphasis-a2:
+    type: int
+    default: 0
+    description: Data lane A2 pre-emphasis. Range 0-7.
+
+  pre-emphasis-a3:
+    type: int
+    default: 0
+    description: Data lane A3 pre-emphasis. Range 0-7.

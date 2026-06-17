@@ -1,0 +1,1 @@
+zephyr_library_sources_ifdef(CONFIG_INPUT_MICROCHIP_MAXTOUCH microchip_maxtouch.c)

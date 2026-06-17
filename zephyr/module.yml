@@ -1,0 +1,4 @@
+name: lcdc_poc_module
+build:
+  cmake: drivers
+  kconfig: drivers/Kconfig

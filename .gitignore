@@ -1,0 +1,30 @@
+# editors
+.vscode
+*~
+
+# python
+.venv
+*.pyc
+__pycache__/
+
+# build
+/build*
+/twister-out*
+
+# Common build artifacts
+*.o
+*.a
+*.d
+*.cmd
+*.log
+
+# ...except the prebuilt proprietary GPU library (manually copied vendor blob)
+!drivers/gpu/microchip_gc520ul/lib/libgpu2dc.a
+
+# docs
+/doc/_build*
+.claude/settings.local.json
+
+# FB capture artifacts from tools/fbcap.py
+fb_*.png
+roi_*.png
