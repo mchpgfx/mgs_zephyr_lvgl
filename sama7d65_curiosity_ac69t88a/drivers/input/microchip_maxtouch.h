@@ -100,6 +100,9 @@ struct mxt_t7_config {
 /* I2C probe timeout in milliseconds */
 #define MXT_PROBE_TIMEOUT_MS 2000
 
+/* Maximum drain passes before giving up on a CHG line that stays asserted. */
+#define MXT_DRAIN_MAX_PASSES 50
+
 /* Touch point state for release detection */
 struct mxt_touch_point {
 	uint16_t x;

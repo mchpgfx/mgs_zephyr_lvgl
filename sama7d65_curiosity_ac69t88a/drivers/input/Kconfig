@@ -35,4 +35,20 @@ config INPUT_MICROCHIP_MAXTOUCH_INTERRUPT
 	  Auto-selected when irq-gpios is present in the device tree node.
 	  When disabled, the driver uses polling mode via k_timer.
 
+config INPUT_MICROCHIP_MAXTOUCH_THREAD_STACK_SIZE
+	int "Drain thread stack size"
+	default 1024
+	help
+	  Stack size for the message-drain thread. The thread performs I2C
+	  reads and input_report() calls.
+
+config INPUT_MICROCHIP_MAXTOUCH_THREAD_PRIORITY
+	int "Drain thread priority"
+	default 5
+	help
+	  Priority of the message-drain thread. The default is preemptible so
+	  the driver does not delay higher-priority application threads while
+	  it waits for the CHG line to deassert. Use a cooperative (negative)
+	  value only if touch latency matters more than application deadlines.
+
 endif # INPUT_MICROCHIP_MAXTOUCH
