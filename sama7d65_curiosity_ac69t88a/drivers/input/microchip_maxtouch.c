@@ -31,7 +31,15 @@ struct mxt_config {
 
 struct mxt_data {
 	const struct device *dev;
-	struct k_work work;
+
+	/* Message draining runs on a dedicated thread so that waiting for the
+	 * CHG line to deassert does not block the shared system workqueue.
+	 */
+	struct k_sem drain_sem;
+	struct k_thread thread;
+	k_thread_stack_t *stack;
+	size_t stack_size;
+
 	struct k_mutex i2c_lock;
 
 	/* Resolved I2C address (may differ from DT after probe) */
@@ -694,18 +702,16 @@ static int mxt_read_messages(const struct device *dev)
 }
 
 /*
- * Work handler: drain messages via T44+T5 bulk reads.
+ * Drain messages via T44+T5 bulk reads.
  * IRQ mode: ONESHOT pattern - drain until CHG goes high, then re-enable.
  * Poll mode: drain until T44 returns 0.
  */
-static void mxt_work_handler(struct k_work *work)
+static void mxt_drain_once(const struct device *dev)
 {
-	struct mxt_data *data = CONTAINER_OF(work, struct mxt_data, work);
-	const struct device *dev = data->dev;
+	struct mxt_data *data = dev->data;
 
 #ifdef CONFIG_INPUT_MICROCHIP_MAXTOUCH_INTERRUPT
 	const struct mxt_config *cfg = dev->config;
-
 	int passes = 0;
 
 	do {
@@ -716,13 +722,21 @@ static void mxt_work_handler(struct k_work *work)
 				break;
 			}
 		}
-		passes++;
-		if (passes >= 50 && !data->chg_warned) {
-			data->chg_warned = true;
-			LOG_WRN("CHG stuck low after drain - "
-				"check pull-up on CHG line "
-				"(open-drain, needs pull-up to VddIO)");
+
+		if (++passes >= MXT_DRAIN_MAX_PASSES) {
+			/* CHG is open-drain and needs a pull-up to VddIO.
+			 * If it stays asserted, stop draining rather than
+			 * loop indefinitely; the interrupt is re-armed below.
+			 */
+			if (!data->chg_warned) {
+				data->chg_warned = true;
+				LOG_WRN("CHG still asserted after %d drain "
+					"passes; check the pull-up on the CHG "
+					"line", MXT_DRAIN_MAX_PASSES);
+			}
+			break;
 		}
+
 		k_sleep(K_MSEC(1));
 	} while (cfg->irq_gpio.port != NULL &&
 		 gpio_pin_get_dt(&cfg->irq_gpio));
@@ -733,6 +747,8 @@ static void mxt_work_handler(struct k_work *work)
 						GPIO_INT_EDGE_TO_ACTIVE);
 	}
 #else
+	ARG_UNUSED(data);
+
 	for (int tries = 0; tries < 10; tries++) {
 		int ret = mxt_read_messages(dev);
 
@@ -741,6 +757,21 @@ static void mxt_work_handler(struct k_work *work)
 		}
 	}
 #endif
+}
+
+/* Drain thread: waits for the IRQ or the poll timer to signal pending messages. */
+static void mxt_thread_fn(void *p1, void *p2, void *p3)
+{
+	const struct device *dev = p1;
+	struct mxt_data *data = dev->data;
+
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
+
+	while (true) {
+		k_sem_take(&data->drain_sem, K_FOREVER);
+		mxt_drain_once(dev);
+	}
 }
 
 /* IRQ / polling handlers */
@@ -752,16 +783,16 @@ static void mxt_irq_handler(const struct device *gpio, struct gpio_callback *cb,
 	struct mxt_data *data = CONTAINER_OF(cb, struct mxt_data, irq_cb);
 	const struct mxt_config *cfg = data->dev->config;
 
-	/* Disable interrupt; work handler re-enables after drain */
+	/* Disable interrupt; the drain thread re-enables it when CHG deasserts */
 	gpio_pin_interrupt_configure_dt(&cfg->irq_gpio, GPIO_INT_DISABLE);
-	k_work_submit(&data->work);
+	k_sem_give(&data->drain_sem);
 }
 #else
 static void mxt_timer_handler(struct k_timer *timer)
 {
 	struct mxt_data *data = CONTAINER_OF(timer, struct mxt_data, poll_timer);
 
-	k_work_submit(&data->work);
+	k_sem_give(&data->drain_sem);
 }
 #endif
 
@@ -939,7 +970,11 @@ static int mxt_init(const struct device *dev)
 	}
 
 	k_mutex_init(&data->i2c_lock);
-	k_work_init(&data->work, mxt_work_handler);
+
+	/* Binary: the drain reads until no messages remain, so several signals
+	 * arriving before the thread runs still need only one drain.
+	 */
+	k_sem_init(&data->drain_sem, 0, 1);
 
 	/* Hardware reset if GPIO available */
 	if (cfg->rst_gpio.port != NULL) {
@@ -1055,7 +1090,16 @@ static int mxt_init(const struct device *dev)
 	LOG_INF("Polling mode (%dms)", CONFIG_INPUT_MICROCHIP_MAXTOUCH_PERIOD_MS);
 #endif
 
-	LOG_INF("Initialized: %u touch points", data->num_touchids);
+	/* Started last, once everything the thread uses is initialised. */
+	k_thread_create(&data->thread, data->stack, data->stack_size,
+			mxt_thread_fn, (void *)dev, NULL, NULL,
+			CONFIG_INPUT_MICROCHIP_MAXTOUCH_THREAD_PRIORITY,
+			0, K_NO_WAIT);
+	k_thread_name_set(&data->thread, "maxtouch");
+
+	LOG_INF("Initialized: %u touch points, drain thread prio %d",
+		data->num_touchids,
+		CONFIG_INPUT_MICROCHIP_MAXTOUCH_THREAD_PRIORITY);
 
 	return 0;
 }
@@ -1063,6 +1107,8 @@ static int mxt_init(const struct device *dev)
 /* Device instantiation */
 
 #define MXT_INIT(inst) \
+	static K_THREAD_STACK_DEFINE(mxt_stack_##inst, \
+		CONFIG_INPUT_MICROCHIP_MAXTOUCH_THREAD_STACK_SIZE); \
 	static const struct mxt_config mxt_config_##inst = { \
 		.common = INPUT_TOUCH_DT_INST_COMMON_CONFIG_INIT(inst), \
 		.i2c = I2C_DT_SPEC_INST_GET(inst), \
@@ -1071,7 +1117,10 @@ static int mxt_init(const struct device *dev)
 		.max_touches = DT_INST_PROP_OR(inst, max_touches, 0), \
 		.startup_delay_ms = DT_INST_PROP(inst, startup_delay_ms), \
 	}; \
-	static struct mxt_data mxt_data_##inst; \
+	static struct mxt_data mxt_data_##inst = { \
+		.stack = mxt_stack_##inst, \
+		.stack_size = K_THREAD_STACK_SIZEOF(mxt_stack_##inst), \
+	}; \
 	PM_DEVICE_DT_INST_DEFINE(inst, mxt_pm_action); \
 	DEVICE_DT_INST_DEFINE(inst, mxt_init, \
 			      PM_DEVICE_DT_INST_GET(inst), \
